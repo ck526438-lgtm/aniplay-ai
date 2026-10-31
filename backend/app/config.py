@@ -26,6 +26,18 @@ class Settings(BaseSettings):
     min_segment_seconds: float = 45.0
     max_segment_seconds: float = 140.0
 
+    # --- Sous-titres IA ---
+    whisper_model: str = "small"  # tiny | base | small | medium | large-v3
+    whisper_device: str = "auto"  # auto | cpu | cuda
+    nllb_model: str = "facebook/nllb-200-distilled-600M"
+    subtitles_dir: Path = Path("./cache/subtitles")
+    subtitles_max_jobs: int = 1  # jobs IA simultanés (gourmands en CPU/GPU)
+    # Mode bureau : backend et lecteur sur la même machine → chemins absolus autorisés.
+    # À laisser à false sur un serveur partagé.
+    local_mode: bool = False
+    # Autoriser l'analyse d'URL distantes (http/https) par ffmpeg
+    allow_remote_media: bool = True
+
     cors_origins: str = "*"
 
     @property

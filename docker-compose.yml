@@ -8,7 +8,16 @@ services:
       - ./backend/.env.example
     environment:
       ANIPLAY_MEDIA_ROOT: /srv/data
+      ANIPLAY_LOCAL_MODE: "false"   # dans Docker, seuls les fichiers de ./media sont lisibles
+      ANIPLAY_SUBTITLES_DIR: /srv/cache/subtitles
     volumes:
       # Vos épisodes locaux, montés en lecture seule pour la détection IA
       - ./media:/srv/data:ro
+      # Sous-titres générés + modèles IA téléchargés (conservés entre redémarrages)
+      - aniplay-cache:/srv/cache
+      - aniplay-models:/home/aniplay/.cache/huggingface
+
+volumes:
+  aniplay-cache:
+  aniplay-models:
     restart: unless-stopped

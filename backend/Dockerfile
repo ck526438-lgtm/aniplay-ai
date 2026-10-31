@@ -10,12 +10,21 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
 WORKDIR /srv
-COPY requirements.txt .
+COPY requirements.txt requirements-subtitles.txt ./
 RUN pip install -r requirements.txt
+
+# Sous-titres IA (≈ +1 Go d'image, torch CPU). Désactiver : --build-arg WITH_SUBTITLES=false
+ARG WITH_SUBTITLES=true
+RUN if [ "$WITH_SUBTITLES" = "true" ]; then \
+      pip install torch --index-url https://download.pytorch.org/whl/cpu \
+      && pip install -r requirements-subtitles.txt; \
+    fi
 
 COPY app ./app
 
-RUN useradd --create-home aniplay && mkdir -p /srv/data && chown -R aniplay /srv
+RUN useradd --create-home aniplay \
+    && mkdir -p /srv/data /srv/cache /home/aniplay/.cache/huggingface \
+    && chown -R aniplay /srv /home/aniplay
 USER aniplay
 
 EXPOSE 8000

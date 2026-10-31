@@ -12,9 +12,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
+from app.api.subtitles import router as subtitles_router
 from app.config import get_settings
 from app.services.aniskip import AniSkipClient
 from app.services.skip_service import SkipService
+from app.services.subtitles.engines import NllbTranslator, WhisperTranscriber
+from app.services.subtitles.jobs import SubtitleJobManager
 
 
 def create_app() -> FastAPI:
@@ -33,6 +36,13 @@ def create_app() -> FastAPI:
             cache_ttl=settings.aniskip_cache_ttl,
         )
         app.state.skip_service = SkipService(settings, aniskip)
+        # Les moteurs IA ne sont chargés en mémoire qu'au premier job (chargement paresseux)
+        if not hasattr(app.state, "subtitle_jobs"):  # les tests peuvent injecter des faux moteurs
+            app.state.subtitle_jobs = SubtitleJobManager(
+                settings,
+                WhisperTranscriber(settings.whisper_model, device=settings.whisper_device),
+                NllbTranslator(settings.nllb_model),
+            )
         yield
         await aniskip.aclose()
 
@@ -49,6 +59,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(router)
+    app.include_router(subtitles_router)
 
     @app.get("/health", tags=["system"])
     async def health() -> dict:

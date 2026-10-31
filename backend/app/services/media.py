@@ -33,20 +33,36 @@ def probe_duration(path: Path) -> float:
         raise MediaError(f"Impossible de lire la durée de {path.name}: {exc}") from exc
 
 
-def load_audio(path: Path, offset: float, duration: float, sr: int = 11025) -> np.ndarray:
-    """Décode une portion de piste audio en mono float32 à `sr` Hz."""
-    cmd = [
-        _require("ffmpeg"), "-nostdin", "-v", "error",
-        "-ss", f"{max(0.0, offset):.3f}", "-t", f"{duration:.3f}", "-i", str(path),
-        "-vn", "-ac", "1", "-ar", str(sr), "-f", "f32le", "-",
-    ]
+def load_audio(
+    path: Path | str,
+    offset: float = 0.0,
+    duration: float | None = None,
+    sr: int = 11025,
+    audio_track: int | None = None,
+    timeout: float = 120,
+) -> np.ndarray:
+    """Décode une piste audio (ou une portion) en mono float32 à `sr` Hz.
+
+    `path` peut être un fichier local ou une URL http(s)/HLS lisible par ffmpeg.
+    `audio_track` choisit la piste (0 = première) pour les fichiers multi-audio (VO/VF).
+    """
+    name = getattr(path, "name", str(path))
+    cmd = [_require("ffmpeg"), "-nostdin", "-v", "error"]
+    if offset > 0:
+        cmd += ["-ss", f"{offset:.3f}"]
+    if duration is not None:
+        cmd += ["-t", f"{duration:.3f}"]
+    cmd += ["-i", str(path)]
+    if audio_track is not None:
+        cmd += ["-map", f"0:a:{audio_track}"]
+    cmd += ["-vn", "-ac", "1", "-ar", str(sr), "-f", "f32le", "-"]
     try:
-        raw = subprocess.run(cmd, capture_output=True, check=True, timeout=120).stdout
+        raw = subprocess.run(cmd, capture_output=True, check=True, timeout=timeout).stdout
     except subprocess.SubprocessError as exc:
-        raise MediaError(f"Décodage audio impossible pour {path.name}: {exc}") from exc
+        raise MediaError(f"Décodage audio impossible pour {name}: {exc}") from exc
     audio = np.frombuffer(raw, dtype=np.float32)
     if audio.size < sr:  # moins d'une seconde exploitable
-        raise MediaError(f"Piste audio vide ou trop courte dans {path.name}")
+        raise MediaError(f"Piste audio vide ou trop courte dans {name}")
     return audio
 
 

@@ -1,0 +1,7 @@
+# Dépendances optionnelles : génération de sous-titres par IA
+# Installation : pip install -r requirements-subtitles.txt
+# GPU NVIDIA : installez d'abord torch avec CUDA (https://pytorch.org/get-started/locally/)
+faster-whisper>=1.0.3
+transformers>=4.44
+sentencepiece>=0.2
+torch>=2.3

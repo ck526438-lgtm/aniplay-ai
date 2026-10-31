@@ -6,8 +6,12 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../controllers/skip_controller.dart';
+import '../controllers/subtitle_generation_controller.dart';
+import '../models/subtitle_job.dart';
 import '../services/skip_api_service.dart';
+import '../services/subtitle_api_service.dart';
 import '../widgets/skip_button.dart';
+import '../widgets/subtitle_generator_panel.dart';
 
 /// Ce que l'écran d'accueil transmet au lecteur.
 class PlaybackRequest {
@@ -50,6 +54,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late final SkipController _skip = SkipController(
     onSeek: _player.seek,
     autoSkip: widget.request.autoSkip,
+  );
+
+  final SubtitleApiService _subtitleApi = SubtitleApiService();
+  late final Future<List<SubtitleLanguage>> _languages = _subtitleApi.languages();
+  late final SubtitleGenerationController _subGen = SubtitleGenerationController(
+    api: _subtitleApi,
+    onReady: _loadGeneratedSubtitle,
   );
 
   final List<StreamSubscription<dynamic>> _subs = [];
@@ -95,6 +106,40 @@ class _PlayerScreenState extends State<PlayerScreen> {
     });
   }
 
+  /// Piste audio actuellement écoutée → index pour ffmpeg (VO/VF dans un même mkv).
+  /// mpv numérote les pistes audio à partir de 1 ; ffmpeg à partir de 0.
+  int? get _currentAudioIndex {
+    final id = int.tryParse(_player.state.track.audio.id);
+    return id == null ? null : id - 1;
+  }
+
+  void _generateSubtitles(SubtitleLanguage lang) {
+    _subGen.start(
+      source: widget.request.source,
+      targetLang: lang.code,
+      languageName: lang.name,
+      audioTrack: _currentAudioIndex,
+    );
+  }
+
+  Future<void> _loadGeneratedSubtitle(String url, String lang, String title) async {
+    await _player.setSubtitleTrack(SubtitleTrack.uri(url, title: title, language: lang));
+    _toast('Sous-titres « $title » activés');
+  }
+
+  void _openSubtitleGenerator() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => SubtitleGeneratorPanel(
+        controller: _subGen,
+        languages: _languages,
+        onGenerate: _generateSubtitles,
+      ),
+    );
+  }
+
   void _toast(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -108,6 +153,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       s.cancel();
     }
     _skip.dispose();
+    _subGen.dispose();
+    _subtitleApi.dispose();
     _player.dispose();
     if (widget.api == null) _api.dispose();
     super.dispose();
@@ -162,6 +209,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       ),
                     ],
                   ),
+                ),
+              ),
+              // Indicateur de progression discret pendant la génération
+              ListenableBuilder(
+                listenable: _subGen,
+                builder: (_, __) => IconButton(
+                  tooltip: 'Générer des sous-titres (IA)',
+                  onPressed: _openSubtitleGenerator,
+                  icon: _subGen.isRunning
+                      ? SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            value: _subGen.job?.progress,
+                          ),
+                        )
+                      : const Icon(Icons.auto_awesome),
                 ),
               ),
               IconButton(
