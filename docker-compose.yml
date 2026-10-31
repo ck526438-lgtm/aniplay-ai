@@ -1,0 +1,14 @@
+services:
+  backend:
+    build: ./backend
+    container_name: aniplay-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env.example
+    environment:
+      ANIPLAY_MEDIA_ROOT: /srv/data
+    volumes:
+      # Vos épisodes locaux, montés en lecture seule pour la détection IA
+      - ./media:/srv/data:ro
+    restart: unless-stopped

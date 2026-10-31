@@ -1,0 +1,103 @@
+# =========================================================
+#  AniPlay AI — .gitignore (monorepo Flutter + Python)
+# =========================================================
+
+# ---------- OS / éditeurs ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+.idea/
+*.iml
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# ---------- Secrets ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.ipynb_checkpoints/
+
+# ---------- Données / médias (jamais versionnés) ----------
+backend/cache/
+backend/data/
+*.mp4
+*.mkv
+*.webm
+*.avi
+*.mov
+*.wav
+*.flac
+*.mp3
+*.npy
+*.npz
+*.log
+
+# ---------- Flutter / Dart ----------
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/.pub-cache/
+frontend/.pub/
+frontend/build/
+frontend/coverage/
+frontend/**/doc/api/
+frontend/.metadata
+*.g.dart.bak
+
+# Android
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/android/**/GeneratedPluginRegistrant.java
+frontend/android/app/debug/
+frontend/android/app/profile/
+frontend/android/app/release/
+frontend/android/key.properties
+*.jks
+*.keystore
+
+# iOS / macOS
+frontend/ios/Pods/
+frontend/ios/.symlinks/
+frontend/ios/Flutter/Flutter.framework
+frontend/ios/Flutter/Generated.xcconfig
+frontend/ios/Flutter/flutter_export_environment.sh
+frontend/ios/Runner/GeneratedPluginRegistrant.*
+frontend/macos/Flutter/ephemeral/
+frontend/macos/Pods/
+**/xcuserdata/
+
+# Windows / Linux desktop
+frontend/windows/flutter/ephemeral/
+frontend/linux/flutter/ephemeral/
+
+# Web
+frontend/web/flutter_service_worker.js

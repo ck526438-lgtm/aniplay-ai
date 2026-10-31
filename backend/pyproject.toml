@@ -1,0 +1,13 @@
+[project]
+name = "aniplay-backend"
+version = "0.1.0"
+description = "Service IA et passerelle AniSkip pour le lecteur AniPlay AI"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
