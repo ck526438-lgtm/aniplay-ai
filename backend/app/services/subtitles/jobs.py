@@ -69,6 +69,8 @@ class SubtitleJobManager:
         self.settings = settings
         self.transcriber = transcriber
         self.translator = translator
+        # Le cache doit changer si on change de moteur de traduction.
+        self._translator_id = getattr(translator, "model_name", None) or type(translator).__name__
         self.out_dir = Path(settings.subtitles_dir)
         self.out_dir.mkdir(parents=True, exist_ok=True)
         self._jobs: dict[str, SubtitleJob] = {}
@@ -208,7 +210,7 @@ class SubtitleJobManager:
         p = Path(source)
         identity = f"{source}|{p.stat().st_size}|{p.stat().st_mtime}" if p.is_file() else source
         raw = "|".join(
-            [identity, self.settings.whisper_model, self.settings.nllb_model,
+            [identity, self.settings.whisper_model, self._translator_id,
              target, src_lang or "auto", fmt, str(track)]
         )
         return hashlib.sha1(raw.encode()).hexdigest()[:20]

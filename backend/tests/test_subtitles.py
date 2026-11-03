@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
-from app.services.subtitles import formats
+from app.services.subtitles import formats, languages
 from app.services.subtitles.engines import EngineUnavailable
 from app.services.subtitles.formats import Cue
 from app.services.subtitles.jobs import SubtitleJobManager
@@ -36,6 +36,16 @@ def test_long_text_is_wrapped_and_split():
 def test_vtt_and_overlap_fix():
     vtt = formats.render([Cue(0, 5, "A"), Cue(2, 4, "B")], "vtt")
     assert vtt.startswith("WEBVTT\n\n00:00:00.000 --> 00:00:01.960\nA")
+
+
+# ------------------------------------------------------------------ langues
+def test_opus_model_name_for_pair():
+    assert languages.opus_model("ja", "fr") == "Helsinki-NLP/opus-mt-ja-fr"
+
+
+def test_opus_model_rejects_unknown_language():
+    with pytest.raises(ValueError, match="non prise en charge"):
+        languages.opus_model("fr", "xx")
 
 
 # ------------------------------------------------------------------ jobs

@@ -16,7 +16,7 @@ from app.api.subtitles import router as subtitles_router
 from app.config import get_settings
 from app.services.aniskip import AniSkipClient
 from app.services.skip_service import SkipService
-from app.services.subtitles.engines import NllbTranslator, WhisperTranscriber
+from app.services.subtitles.engines import NllbTranslator, OpusMtTranslator, WhisperTranscriber
 from app.services.subtitles.jobs import SubtitleJobManager
 
 
@@ -38,10 +38,15 @@ def create_app() -> FastAPI:
         app.state.skip_service = SkipService(settings, aniskip)
         # Les moteurs IA ne sont chargés en mémoire qu'au premier job (chargement paresseux)
         if not hasattr(app.state, "subtitle_jobs"):  # les tests peuvent injecter des faux moteurs
+            translator = (
+                NllbTranslator(settings.nllb_model)
+                if settings.translator == "nllb"
+                else OpusMtTranslator()
+            )
             app.state.subtitle_jobs = SubtitleJobManager(
                 settings,
                 WhisperTranscriber(settings.whisper_model, device=settings.whisper_device),
-                NllbTranslator(settings.nllb_model),
+                translator,
             )
         yield
         await aniskip.aclose()

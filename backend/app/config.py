@@ -27,8 +27,11 @@ class Settings(BaseSettings):
     max_segment_seconds: float = 140.0
 
     # --- Sous-titres IA ---
-    whisper_model: str = "small"  # tiny | base | small | medium | large-v3
+    whisper_model: str = "base"  # tiny | base | small | medium | large-v3
     whisper_device: str = "auto"  # auto | cpu | cuda
+    # "opus" = OPUS-MT, léger et rapide sur CPU, mais une paire de langues par modèle.
+    # "nllb" = NLLB-200, couvre toutes les langues mais ~2,4 Go et lent sans GPU.
+    translator: str = "opus"
     nllb_model: str = "facebook/nllb-200-distilled-600M"
     subtitles_dir: Path = Path("./cache/subtitles")
     subtitles_max_jobs: int = 1  # jobs IA simultanés (gourmands en CPU/GPU)

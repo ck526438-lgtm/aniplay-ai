@@ -24,7 +24,7 @@ encore référencés.
 | 🤖 **Auto-skip** | Optionnel, une seule fois par segment (on peut revenir revoir l'opening) |
 | ☁️ **AniSkip en priorité** | Horodatages communautaires instantanés, avec cache et recalage selon la durée du fichier |
 | 🧠 **IA locale en secours** | Empreinte audio (librosa) puis visuelle (OpenCV) pour détecter le générique commun à plusieurs épisodes |
-| 💬 **Sous-titres VF par IA** | Génère des sous-titres français (ou dans 27 langues) depuis n'importe quelle langue parlée : Whisper transcrit, NLLB-200 traduit — 100 % local, sans clé d'API |
+| 💬 **Sous-titres VF par IA** | Génère des sous-titres français depuis n'importe quelle langue parlée : Whisper transcrit, OPUS-MT traduit (NLLB-200 en secours) — 100 % local, sans clé d'API |
 | ⌨️ **Clavier / TV** | `S` passer · `Espace` pause · `←/→` ±10 s · bouton focalisable à la télécommande |
 
 ---
@@ -36,31 +36,45 @@ La piste se charge automatiquement dans le lecteur dès qu'elle est prête, et v
 continuer à regarder pendant la génération.
 
 ```
-audio de l'épisode ──► Whisper (détecte la langue + transcrit) ──► NLLB-200 (traduit) ──► .srt
-   (piste choisie : VO/VF)        ja, en, ko, zh…                       → fr, en, es…
+audio de l'épisode ──► Whisper (détecte la langue + transcrit) ──► OPUS-MT (traduit) ──► .srt
+   (piste choisie : VO/VF)        ja, en, ko, zh…                    → fr, en, es…
 ```
 
 - **Toutes les langues sources reconnues par Whisper** (~100), détectées automatiquement.
-- **27 langues cibles**, dont le français, l'anglais, l'arabe, et des langues africaines
-  (dioula, bambara, wolof, lingala, swahili, haoussa, yoruba — qualité plus variable).
+- **Deux moteurs de traduction**, au choix via `ANIPLAY_TRANSLATOR` :
+  - `opus` *(défaut)* — un petit modèle par paire de langues (~300 Mo), rapide sur CPU.
+    Les paires utiles pour l'animation existent (`ja-fr`, `ko-fr`, `zh-fr`, `en-fr`…),
+    mais **toutes les combinaisons ne sont pas publiées** : le job renvoie alors une erreur
+    explicite invitant à passer à `nllb`.
+  - `nllb` — NLLB-200 couvre les **27 langues cibles** listées ci-dessous (dont dioula,
+    bambara, wolof, lingala, swahili, haoussa, yoruba — qualité plus variable), mais il est
+    lourd (~1,1 Go, 2,4 Go de RAM en fp32) et lent sans GPU.
 - Deux fichiers par génération : la **transcription originale** et la **traduction**.
 - Lisibilité pro : 42 caractères par ligne, 2 lignes max, pas de chevauchement.
 - Résultats mis en cache : une seconde demande identique est instantanée.
 
-**Temps indicatifs pour un épisode de 24 min** (modèle `small`) : ~1 min avec une carte
-graphique NVIDIA, 5 à 10 min sur un processeur récent. Le modèle `medium` est plus précis mais
-environ 2× plus lent ; `base` est plus rapide mais moins fiable sur le japonais.
+**Temps indicatifs pour un épisode de 24 min**, mesurés (pipeline complet, modèles déjà
+téléchargés) :
 
-> ⚠️ Première utilisation : les modèles se téléchargent automatiquement (~0,5 Go pour Whisper
-> `small`, ~2,5 Go pour NLLB 600M), puis restent en cache.
+| Machine | Coefficient mesuré | Durée estimée |
+|---|---|---|
+| GPU NVIDIA + `small` | ≪ temps réel | ~1 min |
+| Core i3-2100, 8 Go, CPU seul + `base` | **≈ 2,7 × le temps réel** | **50 à 70 min** |
+
+Sur un CPU modeste, la génération est donc une tâche de fond : on la lance, on fait autre
+chose, la piste apparaît dans le lecteur une fois prête.
+
+> ⚠️ Première utilisation : les modèles se téléchargent automatiquement (~150 Mo pour Whisper
+> `base`, ~300 Mo par paire OPUS-MT, ~1,1 Go pour NLLB 600M), puis restent en cache.
 >
 > Une traduction automatique reste moins fine qu'un fansub humain (jeux de mots, honorifiques).
 
-> ⚖️ **Licence des modèles** : Whisper est sous licence MIT (usage commercial autorisé).
-> **NLLB-200 est sous licence CC-BY-NC 4.0 : usage non commercial uniquement.** Pour une version
-> commerciale du logiciel, remplacez `NllbTranslator` par un autre moteur (Argos Translate / OPUS-MT,
-> sous licences permissives, ou une API payante) : il suffit d'implémenter le protocole
-> `Translator` de `backend/app/services/subtitles/engines.py`.
+> ⚖️ **Licence des modèles** : Whisper est sous licence MIT et **OPUS-MT sous Apache-2.0** :
+> l'usage commercial est autorisé avec le moteur par défaut.
+> **NLLB-200 en revanche est sous CC-BY-NC 4.0 : usage non commercial uniquement.** Si vous
+> distribuez une version commerciale, laissez `ANIPLAY_TRANSLATOR=opus` (ou implémentez votre
+> propre moteur — il suffit de respecter le protocole `Translator` de
+> `backend/app/services/subtitles/engines.py`), et n'activez `nllb` que pour un usage personnel.
 
 ---
 
@@ -81,7 +95,7 @@ aniplay-ai/
 │   │       ├── visual_detector.py Empreinte visuelle OpenCV
 │   │       ├── matching.py        Recherche de séquence commune
 │   │       ├── media.py           Accès ffmpeg / ffprobe
-│   │       └── subtitles/         Sous-titres IA : engines (Whisper, NLLB),
+│   │       └── subtitles/         Sous-titres IA : engines (Whisper, OPUS-MT, NLLB),
 │   │                              jobs, formats SRT/VTT, langues
 │   └── tests/
 ├── frontend/           Application Flutter
@@ -240,9 +254,10 @@ curl -X POST localhost:8000/api/v1/analyze -H "content-type: application/json" -
 | `ANIPLAY_MEDIA_ROOT` | `./data` | Seul dossier lisible par l'analyse |
 | `ANIPLAY_OP_SEARCH_WINDOW` / `ED_` | `360` | Fenêtre de recherche (s) |
 | `ANIPLAY_MIN_SEGMENT_SECONDS` | `45` | Durée minimale d'un générique |
-| `ANIPLAY_WHISPER_MODEL` | `small` | `tiny` · `base` · `small` · `medium` · `large-v3` |
+| `ANIPLAY_WHISPER_MODEL` | `base` | `tiny` · `base` · `small` · `medium` · `large-v3` (sur CPU lent, `base` ≈ 2× le temps réel, `small` ≈ 4-5×) |
 | `ANIPLAY_WHISPER_DEVICE` | `auto` | `auto` · `cpu` · `cuda` |
-| `ANIPLAY_NLLB_MODEL` | `facebook/nllb-200-distilled-600M` | Modèle de traduction (`…-1.3B` plus précis) |
+| `ANIPLAY_TRANSLATOR` | `opus` | `opus` = OPUS-MT par paire, rapide sur CPU · `nllb` = NLLB-200, toutes les langues mais lourd et lent sans GPU |
+| `ANIPLAY_NLLB_MODEL` | `facebook/nllb-200-distilled-600M` | Utilisé seulement si `ANIPLAY_TRANSLATOR=nllb` (`…-1.3B` plus précis) |
 | `ANIPLAY_LOCAL_MODE` | `false` | Autorise les chemins absolus (usage bureau mono-utilisateur) |
 | `ANIPLAY_ALLOW_REMOTE_MEDIA` | `true` | Autorise les URL http(s) comme source |
 | `ANIPLAY_CORS_ORIGINS` | `*` | Origines autorisées (séparées par `,`) |

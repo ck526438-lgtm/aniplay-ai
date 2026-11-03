@@ -47,6 +47,19 @@ def nllb_code(iso: str) -> str:
         raise ValueError(f"Langue non prise en charge : {iso}") from exc
 
 
+def opus_model(source: str, target: str) -> str:
+    """Nom Hugging Face du modèle OPUS-MT pour une paire de langues.
+
+    OPUS-MT publie un modèle par paire : « opus-mt-ja-fr ». Toutes les paires
+    n'existent pas, surtout pour les langues peu dotées — l'appelant doit
+    gérer le refus du chargeur.
+    """
+    for iso in (source, target):
+        if iso not in LANGUAGES:
+            raise ValueError(f"Langue non prise en charge : {iso}")
+    return f"Helsinki-NLP/opus-mt-{source}-{target}"
+
+
 def is_supported(iso: str) -> bool:
     return iso in LANGUAGES
 
