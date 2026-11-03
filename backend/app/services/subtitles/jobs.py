@@ -197,7 +197,9 @@ class SubtitleJobManager:
     @staticmethod
     def _write(path: Path, cues: list[formats.Cue], fmt: str) -> None:
         tmp = path.with_suffix(path.suffix + ".part")
-        tmp.write_text(formats.render(cues, fmt), encoding="utf-8")
+        # newline="" : sur Windows, write_text remplacerait \n par \r\n et
+        # casserait le format SRT attendu par les lecteurs.
+        tmp.write_text(formats.render(cues, fmt), encoding="utf-8", newline="")
         tmp.replace(path)  # écriture atomique : jamais de fichier à moitié écrit
 
     def _cache_key(
