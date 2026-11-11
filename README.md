@@ -103,10 +103,13 @@ aniplay-ai/
 │       ├── controllers/skip_controller.dart  Logique d'affichage / skip
 │       ├── widgets/skip_button.dart          Bouton animé
 │       ├── services/skip_api_service.dart    Client du backend
+│       ├── services/backend_launcher.dart    Démarre le moteur IA embarqué
 │       ├── models/skip_segment.dart
 │       └── screens/  home_screen · player_screen
 ├── docs/ARCHITECTURE.md
-├── scripts/            Lancement Linux / Windows
+├── backend/aniplay_server.py   Point d'entrée « bureau » (gelé en aniplay-backend.exe)
+├── installer/aniplay.iss       Installateur Windows (Inno Setup)
+├── scripts/            Lancement Linux / Windows, build_windows.ps1
 └── docker-compose.yml
 ```
 
@@ -114,7 +117,56 @@ Le détail de l'algorithme de détection est dans [`docs/ARCHITECTURE.md`](docs/
 
 ---
 
-## 🚀 Installation
+## 🪟 Application Windows
+
+**La façon la plus simple d'utiliser AniPlay AI** : un installateur classique, sans Python,
+sans Flutter, sans ligne de commande. Le moteur IA (backend) et FFmpeg sont embarqués : l'application
+les démarre toute seule en arrière-plan et les arrête à la fermeture.
+
+1. Téléchargez la dernière version dans **[Releases](https://github.com/ck526438-lgtm/aniplay-ai/releases)** :
+
+   | Fichier | Contenu | Taille |
+   |---|---|---|
+   | `AniPlay-AI-x.y.z-standard-setup.exe` | Lecteur + skip IA (AniSkip, détection audio/vidéo) | ~200 Mo |
+   | `AniPlay-AI-x.y.z-full-setup.exe` | + **sous-titres IA** (Whisper, OPUS-MT, NLLB) | ~700 Mo |
+   | `…-portable.zip` | Même chose, sans installation (décompressez, lancez `aniplay.exe`) | |
+
+2. Lancez l'installateur (droits administrateur **non** requis). Options proposées :
+   raccourci sur le Bureau, entrée **« Ouvrir avec AniPlay AI »** sur les vidéos (mkv, mp4…).
+3. Ouvrez AniPlay AI : l'accueil indique **« Moteur IA prêt »** après quelques secondes.
+
+Windows 10/11 64 bits requis. Données (modèles IA téléchargés, sous-titres générés, journaux) :
+`%LOCALAPPDATA%\AniPlay AI` — le désinstallateur propose de les supprimer.
+Pour régler le moteur IA, créez-y un fichier `backend.env` avec les variables `ANIPLAY_*`
+(voir [Configuration](#️-configuration-backend)), par exemple `ANIPLAY_WHISPER_MODEL=small`.
+
+> SmartScreen peut afficher « Windows a protégé votre ordinateur » car l'installateur n'est pas
+> signé : cliquez sur **Informations complémentaires → Exécuter quand même**.
+
+### Construire l'application Windows soi-même
+
+Prérequis : Python 3.11, Flutter 3.27+ avec *Desktop development with C++* (Visual Studio),
+et [Inno Setup 6](https://jrsoftware.org/isinfo.php) pour l'installateur (`winget install JRSoftware.InnoSetup`).
+
+```powershell
+.\scripts\build_windows.ps1                  # édition standard
+.\scripts\build_windows.ps1 -Edition full    # avec les sous-titres IA
+```
+
+Le script gèle le backend avec PyInstaller, télécharge FFmpeg (build LGPL), vérifie que le
+backend démarre, compile l'app Flutter, puis produit dans `dist\` l'installateur et le zip portable.
+
+**Publier une version** : poussez un tag (`git tag v1.0.0 && git push origin v1.0.0`). Le workflow
+[`windows.yml`](.github/workflows/windows.yml) construit les deux éditions et les attache à la
+release GitHub. À chaque push, les installateurs sont aussi disponibles dans l'onglet *Actions*
+(section *Artifacts*).
+
+**Développer sous Windows** : `.\scripts\prepare_windows.ps1` génère le dossier `frontend\windows`
+(nom, icône, fenêtre), puis `.\scripts\run_backend.ps1` et `cd frontend; flutter run -d windows`.
+
+---
+
+## 🚀 Installation (développeurs)
 
 ### Prérequis
 
@@ -279,7 +331,8 @@ cd frontend && flutter test   # SkipController, SkipButton, génération de sous
 - [ ] Recherche d'anime par titre (Jikan) au lieu de l'ID MAL
 - [ ] Bibliothèque locale avec reprise de lecture
 - [ ] Envoi des segments détectés vers AniSkip
-- [ ] Build CI (GitHub Actions) pour Windows, Linux et Android
+- [x] Application Windows (installateur + portable) construite par GitHub Actions
+- [ ] Build CI pour Linux et Android
 
 ## 🤝 Contribuer
 

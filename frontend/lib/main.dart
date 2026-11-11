@@ -1,5 +1,6 @@
+import 'dart:ui' show AppExitResponse;
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show AppExitResponse;
 import 'package:media_kit/media_kit.dart';
 
 import 'screens/home_screen.dart';
