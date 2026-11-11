@@ -7,7 +7,7 @@
 #             Inno Setup 6 (facultatif, pour l'installateur : winget install JRSoftware.InnoSetup).
 #
 #   .\scripts\build_windows.ps1                       # édition standard
-#   .\scripts\build_windows.ps1 -Edition full         # + sous-titres IA (≈ 1,5 Go)
+#   .\scripts\build_windows.ps1 -Edition full         # + sous-titres IA (≈ 350 Mo compressé)
 #   .\scripts\build_windows.ps1 -Version 1.2.0 -SkipTests
 #
 # Résultat dans dist\ :  AniPlay-AI-<version>-<édition>-setup.exe  et  …-portable.zip

@@ -127,8 +127,8 @@ les démarre toute seule en arrière-plan et les arrête à la fermeture.
 
    | Fichier | Contenu | Taille |
    |---|---|---|
-   | `AniPlay-AI-x.y.z-standard-setup.exe` | Lecteur + skip IA (AniSkip, détection audio/vidéo) | ~200 Mo |
-   | `AniPlay-AI-x.y.z-full-setup.exe` | + **sous-titres IA** (Whisper, OPUS-MT, NLLB) | ~700 Mo |
+   | `AniPlay-AI-x.y.z-standard-setup.exe` | Lecteur + skip IA (AniSkip, détection audio/vidéo) | ~180 Mo |
+   | `AniPlay-AI-x.y.z-full-setup.exe` | + **sous-titres IA** (Whisper, OPUS-MT, NLLB) | ~350 Mo |
    | `…-portable.zip` | Même chose, sans installation (décompressez, lancez `aniplay.exe`) | |
 
 2. Lancez l'installateur (droits administrateur **non** requis). Options proposées :

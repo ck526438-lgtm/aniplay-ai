@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       full:
-        description: "Construire aussi l'édition complète (sous-titres IA, ~1,5 Go)"
+        description: "Construire aussi l'édition complète (sous-titres IA, ~350 Mo)"
         type: boolean
         default: true
 
