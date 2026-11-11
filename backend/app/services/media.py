@@ -4,9 +4,14 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
+
+# Sous Windows, le backend de l'application tourne sans console : sans ce drapeau, chaque appel
+# à ffmpeg/ffprobe ferait clignoter une fenêtre noire.
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 
 
 class MediaError(Exception):
@@ -27,7 +32,9 @@ def probe_duration(path: Path) -> float:
         "-of", "json", str(path),
     ]
     try:
-        out = subprocess.run(cmd, capture_output=True, check=True, timeout=30).stdout
+        out = subprocess.run(
+            cmd, capture_output=True, check=True, timeout=30, creationflags=_NO_WINDOW
+        ).stdout
         return float(json.loads(out)["format"]["duration"])
     except (subprocess.SubprocessError, KeyError, ValueError) as exc:
         raise MediaError(f"Impossible de lire la durée de {path.name}: {exc}") from exc
@@ -57,7 +64,9 @@ def load_audio(
         cmd += ["-map", f"0:a:{audio_track}"]
     cmd += ["-vn", "-ac", "1", "-ar", str(sr), "-f", "f32le", "-"]
     try:
-        raw = subprocess.run(cmd, capture_output=True, check=True, timeout=timeout).stdout
+        raw = subprocess.run(
+            cmd, capture_output=True, check=True, timeout=timeout, creationflags=_NO_WINDOW
+        ).stdout
     except subprocess.SubprocessError as exc:
         raise MediaError(f"Décodage audio impossible pour {name}: {exc}") from exc
     audio = np.frombuffer(raw, dtype=np.float32)

@@ -8,6 +8,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../controllers/skip_controller.dart';
 import '../controllers/subtitle_generation_controller.dart';
 import '../models/subtitle_job.dart';
+import '../services/backend_launcher.dart';
 import '../services/skip_api_service.dart';
 import '../services/subtitle_api_service.dart';
 import '../widgets/skip_button.dart';
@@ -92,6 +93,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (req.malId == null || req.episode == null) return; // pas d'identifiant : pas de skip
     _segmentsRequested = true;
 
+    // Au tout premier lancement, le moteur IA peut encore être en train de démarrer.
+    if (widget.api == null) await BackendLauncher.instance.waitUntilReady();
+    if (!mounted) return;
     final lookup = await _api.fetchSkipTimes(
       malId: req.malId!,
       episode: req.episode!,
@@ -211,7 +215,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   ),
                 ),
               ),
-              // Indicateur de progression discret pendant la génération
+              // Indicateur de progression discret pendant la génération.
+              // Masqué si le moteur IA ne contient pas les sous-titres (édition standard).
+              if (BackendLauncher.instance.subtitlesAvailable)
               ListenableBuilder(
                 listenable: _subGen,
                 builder: (_, __) => IconButton(

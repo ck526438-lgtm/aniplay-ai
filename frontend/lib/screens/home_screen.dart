@@ -1,12 +1,17 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
-import '../config/app_config.dart';
+import '../services/backend_launcher.dart';
 import 'player_screen.dart';
 
 /// Écran d'accueil minimal : choisir une source + identifier l'épisode pour AniSkip.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.initialSource, this.backend});
+
+  /// Fichier passé en argument (« Ouvrir avec AniPlay AI » dans l'Explorateur Windows).
+  final String? initialSource;
+
+  final BackendLauncher? backend;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -14,7 +19,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _form = GlobalKey<FormState>();
-  final _source = TextEditingController();
+  late final _source = TextEditingController(text: widget.initialSource ?? '');
   final _malId = TextEditingController();
   final _episode = TextEditingController(text: '1');
   final _subtitle = TextEditingController();
@@ -161,16 +166,58 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'Backend : ${AppConfig.apiBaseUrl}',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
-                ),
+                BackendStatusBar(launcher: widget.backend ?? BackendLauncher.instance),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// État du moteur IA (backend) sous le bouton « Lire », avec « Réessayer » en cas d'échec.
+class BackendStatusBar extends StatelessWidget {
+  const BackendStatusBar({super.key, required this.launcher});
+
+  final BackendLauncher launcher;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListenableBuilder(
+      listenable: launcher,
+      builder: (context, _) {
+        final (Widget icon, Color color) = switch (launcher.status) {
+          BackendStatus.starting => (
+              const SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+              theme.hintColor,
+            ),
+          BackendStatus.ready => (
+              Icon(Icons.check_circle, size: 16, color: theme.colorScheme.tertiary),
+              theme.colorScheme.tertiary,
+            ),
+          BackendStatus.unavailable => (
+              Icon(Icons.cloud_off, size: 16, color: theme.colorScheme.error),
+              theme.colorScheme.error,
+            ),
+        };
+        return Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          children: [
+            icon,
+            Text(
+              launcher.message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(color: color),
+            ),
+            if (launcher.status == BackendStatus.unavailable)
+              TextButton(onPressed: launcher.restart, child: const Text('Réessayer')),
+          ],
+        );
+      },
     );
   }
 }

@@ -101,3 +101,8 @@ frontend/linux/flutter/ephemeral/
 
 # Web
 frontend/web/flutter_service_worker.js
+
+# ---------- Build de l'application Windows ----------
+/dist/
+/build-cache/
+backend/.venv-build-*/

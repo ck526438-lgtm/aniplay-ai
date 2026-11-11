@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="ANIPLAY_", env_file=".env", extra="ignore")
 
     app_name: str = "AniPlay AI Backend"
-    version: str = "0.1.0"
+    version: str = "1.0.0"
     log_level: str = "info"
 
     # --- AniSkip ---

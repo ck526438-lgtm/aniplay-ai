@@ -1,6 +1,6 @@
 [project]
 name = "aniplay-backend"
-version = "0.1.0"
+version = "1.0.0"
 description = "Service IA et passerelle AniSkip pour le lecteur AniPlay AI"
 requires-python = ">=3.10"
 

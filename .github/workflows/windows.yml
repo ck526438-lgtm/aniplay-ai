@@ -1,0 +1,109 @@
+name: Application Windows
+
+on:
+  push:
+    branches: [main, "feat/**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Construire aussi l'édition complète (sous-titres IA, ~1,5 Go)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write # publication des releases sur les tags v*
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-tests:
+    name: Tests backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: sudo apt-get update -q && sudo apt-get install -yq ffmpeg
+      - name: ruff + pytest
+        working-directory: backend
+        run: |
+          pip install -r requirements-dev.txt
+          ruff check app tests aniplay_server.py
+          pytest -q
+
+  windows:
+    name: Windows (${{ matrix.edition }})
+    needs: backend-tests
+    runs-on: windows-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        edition: [standard, full]
+    # L'édition complète (torch + transformers) est un bonus : son échec ne bloque pas la standard
+    continue-on-error: ${{ matrix.edition == 'full' }}
+    steps:
+      - name: Édition ignorée ?
+        id: gate
+        shell: pwsh
+        run: |
+          $skip = "${{ matrix.edition }}" -eq "full" -and (
+            "${{ github.event_name }}" -eq "pull_request" -or
+            ("${{ github.event_name }}" -eq "workflow_dispatch" -and "${{ inputs.full }}" -ne "true"))
+          "skip=$($skip.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.skip != 'true'
+
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          python-version: "3.11"
+
+      - uses: subosito/flutter-action@v2
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          channel: stable
+          cache: true
+
+      - name: Version
+        if: steps.gate.outputs.skip != 'true'
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $v = "${{ github.ref_name }}".TrimStart("v")
+          } else {
+            $v = (Select-String frontend/pubspec.yaml -Pattern '^version:\s*([\d.]+)').Matches[0].Groups[1].Value
+          }
+          # Inno Setup et Windows exigent une version numérique x.y.z
+          $v = ($v -replace '[^\d.].*$', '')
+          "value=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Build (backend + Flutter + installateur)
+        if: steps.gate.outputs.skip != 'true'
+        shell: pwsh
+        run: ./scripts/build_windows.ps1 -Edition ${{ matrix.edition }} -Version ${{ steps.version.outputs.value }}
+
+      - uses: actions/upload-artifact@v4
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          name: AniPlay-AI-${{ steps.version.outputs.value }}-${{ matrix.edition }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0 # déjà compressé
+
+      - name: Publication de la release
+        if: steps.gate.outputs.skip != 'true' && github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true

@@ -5,6 +5,7 @@ Docs live :  http://localhost:8000/docs
 """
 from __future__ import annotations
 
+import importlib.util
 import logging
 from contextlib import asynccontextmanager
 
@@ -66,9 +67,19 @@ def create_app() -> FastAPI:
     app.include_router(router)
     app.include_router(subtitles_router)
 
+    subtitles_available = all(
+        importlib.util.find_spec(m) is not None for m in ("faster_whisper", "transformers")
+    )
+
     @app.get("/health", tags=["system"])
     async def health() -> dict:
-        return {"status": "ok", "version": settings.version}
+        return {
+            "status": "ok",
+            "version": settings.version,
+            "local_mode": settings.local_mode,
+            # False dans l'édition « standard » de l'app Windows (sans moteurs de sous-titres)
+            "subtitles": subtitles_available,
+        }
 
     return app
 
