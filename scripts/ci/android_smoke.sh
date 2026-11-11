@@ -36,5 +36,5 @@ adb uninstall "$PKG" >/dev/null
 
 echo "=== Test d'intégration : lecture vidéo ==="
 cd "$ROOT/frontend"
-flutter test integration_test/playback_test.dart -d emulator-5554 \
+timeout 1200 flutter test integration_test/playback_test.dart -d emulator-5554 \
   --dart-define=TEST_VIDEO_URL=http://10.0.2.2:8088/test.mp4

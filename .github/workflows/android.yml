@@ -93,7 +93,7 @@ jobs:
     name: Test sur émulateur
     needs: apk
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
