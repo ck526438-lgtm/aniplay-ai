@@ -1,0 +1,141 @@
+name: Application Android
+
+on:
+  push:
+    branches: [main, "feat/**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write # publication des APK sur les releases (tags v*)
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: Build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Version
+        id: version
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then v="${GITHUB_REF_NAME#v}"; else
+            v=$(grep -oP '^version:\s*\K[\d.]+' frontend/pubspec.yaml); fi
+          echo "value=${v%%[^0-9.]*}" >> "$GITHUB_OUTPUT"
+
+      - name: Projet Android
+        run: python3 scripts/prepare_android.py
+
+      - name: Clé de signature (secrets du dépôt, facultatif)
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::warning::Pas de secret ANDROID_KEYSTORE_BASE64 : APK signé avec une clé de débogage (voir README)"
+            exit 0
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/aniplay-release.jks"
+          cat > frontend/android/key.properties <<EOF
+          storeFile=$RUNNER_TEMP/aniplay-release.jks
+          storePassword=$STORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+          sed -i 's/^ *//' frontend/android/key.properties
+
+      - name: Tests
+        working-directory: frontend
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-infos
+          flutter test
+
+      - name: Build APK (par architecture + universel)
+        working-directory: frontend
+        run: |
+          V=${{ steps.version.outputs.value }}
+          flutter build apk --release --split-per-abi --build-name "$V" --build-number "${{ github.run_number }}"
+          mkdir -p ../dist
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            cp "build/app/outputs/flutter-apk/app-$abi-release.apk" "../dist/AniPlay-AI-$V-android-$abi.apk"
+          done
+          flutter build apk --release --build-name "$V" --build-number "${{ github.run_number }}"
+          cp build/app/outputs/flutter-apk/app-release.apk "../dist/AniPlay-AI-$V-android-universel.apk"
+          ls -la ../dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AniPlay-AI-${{ steps.version.outputs.value }}-android
+          path: dist/*.apk
+          if-no-files-found: error
+          compression-level: 0
+
+  emulator:
+    name: Test sur émulateur
+    needs: apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: AniPlay-AI-${{ needs.apk.outputs.version }}-android
+          path: dist
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: KVM + ffmpeg
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          sudo apt-get update -q && sudo apt-get install -yq ffmpeg
+      - name: Projet Android (pour le test d'intégration)
+        run: python3 scripts/prepare_android.py && cd frontend && flutter pub get
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: default
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: ./scripts/ci/android_smoke.sh dist/AniPlay-AI-${{ needs.apk.outputs.version }}-android-x86_64.apk
+
+  release:
+    name: Publication (tag)
+    if: github.ref_type == 'tag'
+    needs: [apk, emulator]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: AniPlay-AI-${{ needs.apk.outputs.version }}-android
+          path: dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.apk
+          fail_on_unmatched_files: true

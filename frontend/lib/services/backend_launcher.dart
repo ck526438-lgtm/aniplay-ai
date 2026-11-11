@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
 
@@ -22,6 +23,8 @@ enum BackendStatus {
 ///
 /// Ordre de recherche :
 /// 1. URL imposée par `--dart-define=ANIPLAY_API=…` → on l'utilise telle quelle ;
+///    sinon URL d'un serveur enregistrée dans les réglages de l'app (ex. le PC de la
+///    maison depuis le téléphone Android) ;
 /// 2. exécutable embarqué `backend/aniplay-backend.exe` à côté de l'application
 ///    (version installée) → lancé sur un port libre, arrêté à la fermeture ;
 /// 3. backend de développement déjà lancé sur http://127.0.0.1:8000.
@@ -33,8 +36,63 @@ class BackendLauncher extends ChangeNotifier {
     http.Client? client,
     this.startupTimeout = const Duration(seconds: 90),
     String? executableOverride,
+    Future<String?> Function()? loadServerUrl,
+    Future<void> Function(String? url)? saveServerUrl,
   })  : _client = client ?? http.Client(),
-        _executableOverride = executableOverride;
+        _executableOverride = executableOverride,
+        _loadServerUrl = loadServerUrl ?? _prefsLoad,
+        _saveServerUrl = saveServerUrl ?? _prefsSave;
+
+  static const _prefsKey = 'aniplay.server_url';
+
+  static Future<String?> _prefsLoad() async {
+    try {
+      return (await SharedPreferences.getInstance()).getString(_prefsKey);
+    } catch (_) {
+      return null; // stockage indisponible (tests, plateforme exotique)
+    }
+  }
+
+  static Future<void> _prefsSave(String? url) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (url == null) {
+      await prefs.remove(_prefsKey);
+    } else {
+      await prefs.setString(_prefsKey, url);
+    }
+  }
+
+  final Future<String?> Function() _loadServerUrl;
+  final Future<void> Function(String? url) _saveServerUrl;
+  String? _serverUrl;
+
+  /// Serveur AniPlay choisi par l'utilisateur (null = automatique).
+  String? get serverUrl => _serverUrl;
+
+  /// Vrai sur Android / iOS : pas de moteur IA embarqué possible.
+  static bool get isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
+  /// Normalise une URL saisie : « 192.168.1.20:8000 » → « http://192.168.1.20:8000 ».
+  static String? normalizeUrl(String? input) {
+    var url = input?.trim() ?? '';
+    if (url.isEmpty) return null;
+    if (!url.contains('://')) url = 'http://$url';
+    url = url.replaceAll(RegExp(r'/+$'), '');
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasAuthority || !(uri.scheme == 'http' || uri.scheme == 'https')) {
+      return null;
+    }
+    return url;
+  }
+
+  /// Enregistre (ou efface avec null) le serveur choisi, puis s'y reconnecte.
+  Future<void> setServerUrl(String? url) async {
+    _serverUrl = normalizeUrl(url);
+    try {
+      await _saveServerUrl(_serverUrl);
+    } catch (_) {}
+    await restart();
+  }
 
   /// Instance partagée par toute l'application.
   static final BackendLauncher instance = BackendLauncher();
@@ -92,6 +150,23 @@ class BackendLauncher extends ChangeNotifier {
     if (AppConfig.hasCustomApi) {
       AppConfig.apiBaseUrl = AppConfig.configuredApi;
       return _probe(AppConfig.configuredApi, attempts: 3);
+    }
+
+    _serverUrl ??= normalizeUrl(await _loadServerUrl());
+    final server = _serverUrl;
+    if (server != null) {
+      AppConfig.apiBaseUrl = server;
+      return _probe(server, attempts: 3);
+    }
+
+    if (isMobile) {
+      // Téléphone sans serveur configuré : mode autonome (AniSkip en direct)
+      _subtitlesAvailable = false;
+      _set(
+        BackendStatus.unavailable,
+        'Mode autonome : skip via AniSkip. Sous-titres IA : connectez un serveur AniPlay.',
+      );
+      return;
     }
 
     final exe = embeddedExecutable();
@@ -186,9 +261,10 @@ class BackendLauncher extends ChangeNotifier {
       if (await _health(url)) return;
       await Future<void>.delayed(const Duration(milliseconds: 500));
     }
+    _subtitlesAvailable = false;
     _set(
       BackendStatus.unavailable,
-      'Backend introuvable sur $url — lecture possible, sans skip IA',
+      'Serveur IA introuvable ($url) — skip via AniSkip, sans IA locale',
     );
   }
 

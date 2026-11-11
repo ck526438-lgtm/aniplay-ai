@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../services/backend_launcher.dart';
+import '../widgets/server_settings_dialog.dart';
 import 'player_screen.dart';
 
 /// Écran d'accueil minimal : choisir une source + identifier l'épisode pour AniSkip.
@@ -86,7 +87,24 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.all(24),
               shrinkWrap: true,
               children: [
-                Text('AniPlay AI', style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w800)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'AniPlay AI',
+                        style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Serveur IA',
+                      icon: const Icon(Icons.settings_outlined),
+                      onPressed: () => ServerSettingsDialog.show(
+                        context,
+                        widget.backend ?? BackendLauncher.instance,
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 4),
                 Text(
                   'Lecteur d\'anime avec skip intelligent des génériques',
@@ -188,7 +206,13 @@ class BackendStatusBar extends StatelessWidget {
     return ListenableBuilder(
       listenable: launcher,
       builder: (context, _) {
+        // Téléphone sans serveur : ce n'est pas une erreur, c'est le mode autonome
+        final standalone = BackendLauncher.isMobile && launcher.serverUrl == null;
         final (Widget icon, Color color) = switch (launcher.status) {
+          BackendStatus.unavailable when standalone => (
+              Icon(Icons.phone_android, size: 16, color: theme.hintColor),
+              theme.hintColor,
+            ),
           BackendStatus.starting => (
               const SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2)),
               theme.hintColor,
@@ -213,7 +237,12 @@ class BackendStatusBar extends StatelessWidget {
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(color: color),
             ),
-            if (launcher.status == BackendStatus.unavailable)
+            if (launcher.status == BackendStatus.unavailable && standalone)
+              TextButton(
+                onPressed: () => ServerSettingsDialog.show(context, launcher),
+                child: const Text('Configurer un serveur'),
+              )
+            else if (launcher.status == BackendStatus.unavailable)
               TextButton(onPressed: launcher.restart, child: const Text('Réessayer')),
           ],
         );
