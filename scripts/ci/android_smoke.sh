@@ -11,7 +11,17 @@ WORK="$(mktemp -d)"
 echo "=== Vidéo de test servie à l'émulateur (http://10.0.2.2:8088) ==="
 # Vidéo H.264/AAC de 12 s versionnée (pas de dépendance à apt/ffmpeg sur le runner)
 cp "$ROOT/frontend/integration_test/test_video.mp4" "$WORK/test.mp4"
-(cd "$WORK" && python3 -m http.server 8088 >/dev/null 2>&1 &)
+python3 -m http.server 8088 --directory "$WORK" >/dev/null 2>&1 &
+SERVER=$!
+# Rien ne doit survivre au script : l'action de l'émulateur attend ses processus enfants
+cleanup() {
+  kill "$SERVER" 2>/dev/null
+  (cd "$ROOT/frontend/android" 2>/dev/null && ./gradlew --stop >/dev/null 2>&1)
+  pkill -f GradleDaemon 2>/dev/null
+  pkill -f "kotlin-daemon" 2>/dev/null
+  true
+}
+trap cleanup EXIT
 sleep 1
 
 echo "=== APK release : installation et lancement ==="
@@ -37,3 +47,6 @@ echo "=== Test d'intégration : lecture vidéo ==="
 cd "$ROOT/frontend"
 timeout 1200 flutter test integration_test/playback_test.dart -d emulator-5554 \
   --dart-define=TEST_VIDEO_URL=http://10.0.2.2:8088/test.mp4
+status=$?
+echo "Tests d'intégration : code $status"
+exit $status
