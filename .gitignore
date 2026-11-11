@@ -106,3 +106,4 @@ frontend/web/flutter_service_worker.js
 /dist/
 /build-cache/
 backend/.venv-build-*/
+!frontend/integration_test/test_video.mp4

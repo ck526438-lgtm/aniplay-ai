@@ -166,6 +166,57 @@ release GitHub. À chaque push, les installateurs sont aussi disponibles dans l'
 
 ---
 
+## 📱 Application Android (APK)
+
+Téléchargez l'APK dans **[Releases](https://github.com/ck526438-lgtm/aniplay-ai/releases)** :
+
+| Fichier | Pour |
+|---|---|
+| `AniPlay-AI-x.y.z-android-arm64-v8a.apk` | **La plupart des téléphones récents** (2017 et après) |
+| `AniPlay-AI-x.y.z-android-armeabi-v7a.apk` | Anciens téléphones 32 bits |
+| `AniPlay-AI-x.y.z-android-universel.apk` | En cas de doute : fonctionne partout (plus lourd) |
+
+Installation : ouvrez l'APK sur le téléphone et autorisez « Installer des applis inconnues »
+pour votre navigateur ou gestionnaire de fichiers. Android 7.0 ou plus récent.
+
+**Ce qui fonctionne sur le téléphone :**
+
+- **Mode autonome** (par défaut) : lecture des fichiers et des liens (mp4, mkv, HLS…), pistes
+  audio et sous-titres, **skip des openings/endings via AniSkip** directement depuis le téléphone.
+- **Avec un serveur IA** : le téléphone ne peut pas exécuter les modèles IA (détection locale,
+  sous-titres Whisper). Lancez le backend sur un PC du même Wi-Fi
+  (`.\scripts\run_backend.ps1` ou `docker compose up`, qui écoutent sur le port 8000), puis
+  dans l'app : ⚙️ **Serveur IA** → adresse du PC, par exemple `192.168.1.20:8000`.
+  Les sous-titres IA fonctionnent alors pour les vidéos en **URL** (le PC ne voit pas les
+  fichiers stockés sur le téléphone).
+
+**Construire l'APK soi-même** (Flutter 3.29+, Android SDK, Java 17) :
+
+```bash
+python scripts/prepare_android.py      # génère frontend/android (nom, icône, permissions)
+cd frontend && flutter build apk --release --split-per-abi
+```
+
+**Signature** : sans configuration, l'APK est signé avec une clé de débogage, ce qui suffit pour
+l'installer. Pour des mises à jour qui s'installent par-dessus l'ancienne version (et pour le Play
+Store), créez votre clé une fois pour toutes et gardez-la précieusement :
+
+```bash
+keytool -genkeypair -v -keystore aniplay-release.jks -alias aniplay -keyalg RSA -keysize 4096 -validity 10000
+```
+
+puis ajoutez dans GitHub → *Settings* → *Secrets and variables* → *Actions* :
+`ANDROID_KEYSTORE_BASE64` (sortie de `base64 -w0 aniplay-release.jks`), `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS` (`aniplay`) et `ANDROID_KEY_PASSWORD`. La CI signera alors les APK avec.
+En local, créez `frontend/android/key.properties` (`storeFile=`, `storePassword=`, `keyAlias=`,
+`keyPassword=`) — ce fichier n'est jamais versionné.
+
+La CI ([`android.yml`](.github/workflows/android.yml)) construit les APK à chaque push, les teste
+sur un émulateur Android (démarrage de l'app et lecture vidéo réelle avec libmpv) et les attache
+aux releases (tags `v*`).
+
+---
+
 ## 🚀 Installation (développeurs)
 
 ### Prérequis
@@ -332,7 +383,8 @@ cd frontend && flutter test   # SkipController, SkipButton, génération de sous
 - [ ] Bibliothèque locale avec reprise de lecture
 - [ ] Envoi des segments détectés vers AniSkip
 - [x] Application Windows (installateur + portable) construite par GitHub Actions
-- [ ] Build CI pour Linux et Android
+- [x] Application Android (APK) construite et testée sur émulateur par GitHub Actions
+- [ ] Build CI pour Linux
 
 ## 🤝 Contribuer
 

@@ -9,9 +9,8 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 WORK="$(mktemp -d)"
 
 echo "=== Vidéo de test servie à l'émulateur (http://10.0.2.2:8088) ==="
-ffmpeg -loglevel error -f lavfi -i testsrc=duration=12:size=640x360:rate=24 \
-  -f lavfi -i sine=frequency=440:duration=12 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest \
-  "$WORK/test.mp4"
+# Vidéo H.264/AAC de 12 s versionnée (pas de dépendance à apt/ffmpeg sur le runner)
+cp "$ROOT/frontend/integration_test/test_video.mp4" "$WORK/test.mp4"
 (cd "$WORK" && python3 -m http.server 8088 >/dev/null 2>&1 &)
 sleep 1
 
