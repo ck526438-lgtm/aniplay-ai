@@ -41,7 +41,7 @@ void main() {
     final res = await api.fetchSkipTimes(malId: 21, episode: 1, episodeLength: const Duration(seconds: 1420));
     expect(called!.host, 'api.aniskip.com');
     expect(called!.path, '/v2/skip-times/21/1');
-    expect(called!.query, contains('types[]=op'));
+    expect(Uri.decodeQueryComponent(called!.query), contains('types[]=op'));
     expect(res.segments.map((s) => s.type), [SegmentType.opening, SegmentType.ending]);
     expect(res.segments.first.start, const Duration(seconds: 80));
   });

@@ -40,11 +40,13 @@ void main() {
   });
 
   testWidgets("l'écran de lecture s'ouvre sans erreur", (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: PlayerScreen(
-        request: PlaybackRequest(source: _videoUrl, title: 'test', malId: 21, episode: 1),
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: PlayerScreen(
+          request: PlaybackRequest(source: _videoUrl, title: 'test', malId: 21, episode: 1),
+        ),
       ),
-    ));
+    );
     await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: 6)));
     await tester.pump();
     expect(tester.takeException(), isNull);
