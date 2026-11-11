@@ -15,10 +15,12 @@ BackendLauncher _launcher(MockClient client) => BackendLauncher(
 
 void main() {
   test('backend de développement joignable : prêt, sous-titres selon /health', () async {
-    final launcher = _launcher(MockClient((req) async {
+    Future<http.Response> health(http.Request req) async {
       expect(req.url.path, '/health');
       return http.Response(jsonEncode({'status': 'ok', 'version': '0.2.0', 'subtitles': false}), 200);
-    }));
+    }
+
+    final launcher = _launcher(MockClient(health));
     await launcher.start();
     expect(launcher.status, BackendStatus.ready);
     expect(launcher.subtitlesAvailable, isFalse);

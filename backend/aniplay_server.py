@@ -165,10 +165,41 @@ def self_test() -> int:
     try:
         import faster_whisper  # noqa: F401
         import transformers  # noqa: F401
-
-        print("[ok] sous-titres IA disponibles")
     except ImportError:
         print("[--] sous-titres IA non inclus (édition standard)")
+        return 0
+
+    # Édition complète : on instancie de minuscules modèles (sans téléchargement) pour vérifier
+    # que torch, Marian (OPUS-MT) et M2M100 (NLLB) fonctionnent réellement une fois gelés.
+    import ctranslate2
+    import sentencepiece  # noqa: F401
+    import torch
+    from faster_whisper import WhisperModel  # noqa: F401
+    from transformers import (  # noqa: F401
+        AutoModelForSeq2SeqLM,
+        AutoTokenizer,
+        M2M100Config,
+        M2M100ForConditionalGeneration,
+        MarianConfig,
+        MarianMTModel,
+    )
+    from transformers.models.marian import tokenization_marian  # noqa: F401
+    from transformers.models.nllb import tokenization_nllb  # noqa: F401
+
+    tiny = {
+        "vocab_size": 64, "d_model": 16, "encoder_layers": 1, "decoder_layers": 1,
+        "encoder_attention_heads": 2, "decoder_attention_heads": 2,
+        "encoder_ffn_dim": 32, "decoder_ffn_dim": 32, "max_position_embeddings": 32,
+        "pad_token_id": 0, "decoder_start_token_id": 0, "eos_token_id": 1,
+    }
+    ids = torch.tensor([[5, 6, 7, 1]])
+    for cls, cfg in ((MarianMTModel, MarianConfig), (M2M100ForConditionalGeneration, M2M100Config)):
+        model = cls(cfg(**tiny)).eval()
+        with torch.inference_mode():
+            out = model.generate(ids, max_new_tokens=3)
+        print(f"[ok] {cls.__name__} : génération {tuple(out.shape)}")
+    print(f"[ok] torch {torch.__version__}, ctranslate2 {ctranslate2.__version__}")
+    print("[ok] sous-titres IA disponibles")
     return 0
 
 

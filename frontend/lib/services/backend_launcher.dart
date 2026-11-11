@@ -153,7 +153,7 @@ class BackendLauncher extends ChangeNotifier {
 
     var exited = false;
     int? exitStatus;
-    unawaited(proc.exitCode.then((code) {
+    void onExit(int code) {
       exited = true;
       exitStatus = code;
       if (identical(_process, proc)) {
@@ -163,7 +163,9 @@ class BackendLauncher extends ChangeNotifier {
           _set(BackendStatus.unavailable, 'Le moteur IA s\'est arrêté (code $code)');
         }
       }
-    }));
+    }
+
+    unawaited(proc.exitCode.then(onExit));
 
     final deadline = DateTime.now().add(startupTimeout);
     while (DateTime.now().isBefore(deadline)) {
@@ -231,10 +233,13 @@ class BackendLauncher extends ChangeNotifier {
     _embedded = false;
     if (proc == null) return;
     proc.kill();
-    await proc.exitCode.timeout(const Duration(seconds: 3), onTimeout: () {
-      proc.kill(ProcessSignal.sigkill);
-      return -1;
-    });
+    await proc.exitCode.timeout(
+      const Duration(seconds: 3),
+      onTimeout: () {
+        proc.kill(ProcessSignal.sigkill);
+        return -1;
+      },
+    );
   }
 
   void _set(BackendStatus status, String message) {
