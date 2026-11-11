@@ -30,7 +30,11 @@ jobs:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: backend/requirements*.txt
-      - run: sudo apt-get update -q && sudo apt-get install -yq ffmpeg
+      - name: FFmpeg (facultatif pour les tests)
+        # Les miroirs Ubuntu de GitHub tombent parfois en panne : on ne bloque pas la CI pour ça
+        timeout-minutes: 5
+        continue-on-error: true
+        run: sudo apt-get update -q && sudo apt-get install -yq ffmpeg
       - name: ruff + pytest
         working-directory: backend
         run: |
